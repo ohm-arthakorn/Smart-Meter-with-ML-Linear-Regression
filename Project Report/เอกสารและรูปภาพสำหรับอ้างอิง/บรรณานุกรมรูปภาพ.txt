@@ -1,0 +1,14 @@
+รูปที่ 2.1 ไฟฟ้ากระแสสลับ
+https://www.meanwelldirect.co.uk/wp-content/uploads/sites/42/2014/07/Alternating-Current.jpg
+
+ค่ายังผลของไฟฟ้ากระแสสลับ
+https://cdn1.byjus.com/wp-content/uploads/2023/03/Peak-and-R.M.S-Value-of-an-Alternating-Current-Voltage-Updated.png
+
+ภาพโมดูล PZEM-004T
+https://esphome.io/components/sensor/images/pzem-ac.png
+
+ภาพกราฟแสดงความสัมพันธ์แบบการถดถอยแบบเชิงเส้น
+https://miro.medium.com/1*Nd_5tL3AnWUFUyzkdzyFew.png
+
+ภาพตัวอย่างกราฟแสดงความสัมพันธ์แบบการถดถอยแบบเชิงเส้นพหุ
+https://www.scribbr.com/wp-content/uploads//2020/02/multiple-regression-in-r-graph-1.png
