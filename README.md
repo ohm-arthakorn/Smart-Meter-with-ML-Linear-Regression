@@ -1,2 +1,2 @@
-# Smart-Meter-
+# Smart-Meter
 Project สำหรับการพัฒนา "Smart Meter" ให้สามารถวัดแรงดันไฟฟ้า กระแสไฟฟ้า ฯลฯ และมีโมเดล (Model) สำหรับการเรียนรู้ด้วยเครื่อง (Machine Learning) แบบการถดถอยเชิงเส้น (Linear Regression) เพื่อทำนายค่าไฟฟ้า ณ สิ้นเดือน
