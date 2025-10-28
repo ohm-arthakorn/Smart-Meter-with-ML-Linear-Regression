@@ -28,10 +28,19 @@ float power;
 float energy;
 float frequency;
 float power_factor;
-unsigned long previousMillis = 0;
-const long interval = 5000;  // มีการส่งข้อมูลทุก ๆ 5 วินาที
-unsigned long currentMillis = millis();
+uint8_t lcdAnimationPos = 0;
 
+bool WiFiConnectedMessageShown = false;
+bool DisconnectedStatus = false;
+
+unsigned long currentMillis = millis();
+unsigned long previousMillis = 0;
+unsigned long SendDataMillis = 0;
+unsigned long LCDMillis = 0;
+unsigned long SerialMillis = 0;
+unsigned const long interval_lcd = 500;
+unsigned const long interval = 10000;  // มีการส่งข้อมูลทุก ๆ 10 วินาที
+unsigned const long interval_update = 3000;
 
 // WiFi & Google Script Link
 const char *ssid = "Ohm";
@@ -55,7 +64,7 @@ char msg[100];
 
 
 // -- Function that for reconnect to MQTT Server with Node Red ฟังก์ชันสำหรับการเชื่อมต่ออีกครั้งระหว่าง MQTT และ Node Red --
-void reonnectMQTT() {
+void reconnectMQTT() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     if (client.connect(mqttClient, mqttUsername, mqttPassword)) {
@@ -70,7 +79,7 @@ void reonnectMQTT() {
   }
 }
 
-// -- Callback Function ฟังก์ชันเอาไว้สำหรับการแจ้งเตือนเมื่อมีข้อมูลมีการส่งไปยัง Topics ที่เราได้ทำการ Subscribes --
+// มีการใช้งาน callback กรณีที่ Topics ที่ subscribe มีการอัพเดทขึ้น e.g. มีข้อมูลมายัง Topics
 void callback(char *topic, byte *payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
@@ -84,44 +93,97 @@ void callback(char *topic, byte *payload, unsigned int length) {
   Serial.println(message);
 }
 
-// --- Connected WiFi Function ---
-void connectWiFiandShowOnLCD() {
+/*
+  @brief มีการเริ่มต้นเชื่อมต่อเข้ากับ WiFi โดยการทำงานจะประกอบด้วย
+  1. เริ่มต้นการเชื่อมต่อ WiFi ด้วย WiFi.begin
+  2. มีการแสดงผลข้อความลง LCD ว่ากำลังมีการเชื่อมต่อ
+  3. มีการระบุตำแหน่งของการโหลดอนิเมชั่นในการทำงาน LCD ต่อไป
+*/
+void setupWiFi() {
+  WiFi.begin(ssid, password);  // Initialized connecting to WiFi. เริ่มต้นการเชื่อมต่อ WiFi
+  Serial.print("\nConnecting to WiFi...");
 
-  // --- Connecting to WiFi and show in Serial Monitor ---
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to Wi-Fi...");
+  // แสดงผลข้อความลงบน LCD
   lcd.setCursor(0, 0);
-  lcd.print("Connecting to ");
+  lcd.print("Connecting to");
   lcd.setCursor(0, 1);
   lcd.print("Wi-Fi.");
-  int i = 6;
 
-  // -- For checking condition that WiFi have been connected ? do others : for loop connecting.
+
+  // ประกาศตำแหน่งสำหรับการแสดงผลว่ากำลังมีการเชื่อมต่อ ณ ตำแหน่งที่ 6 ของจอแสดงผล LCD
+  lcdAnimationPos = 6;
+
+  // มีการเปลี่ยนจากการเลือกใช้งาน Millis() กลับไปใช้งาน while เพราะคิดว่าน่าจะมีความเหมาะสมกับสถานการณ์นี้มากกว่าในกรณีที่ใช้ setup()
   while (WiFi.status() != WL_CONNECTED) {
+    LoadingAnimationWiFi();
     delay(500);
-    Serial.print(".");
-
-    lcd.setCursor(i, 1);
-    lcd.print(".");
-    lcd.print(" ");
-    i++;
-    if (i > 17) {
-      i = 5;
-    }
   }
-  // If I can connected to WiFi show status follow these.
-  Serial.print("\nConnected to WiFi! -->");
-  Serial.println(ssid);
-  Serial.print("IP Address : ");
-  Serial.println(WiFi.localIP());
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Connected! to");
-  lcd.setCursor(0, 1);
-  lcd.print(ssid);
 }
 
-void ShowStatusValue() {
+// ฟังก์ชันสำหรับการแสดงผลอนิเมชั่นการโหลดเพื่อรอการเชื่อมต่อ WiFi
+void LoadingAnimationWiFi() {
+  Serial.print(".");
+  lcd.setCursor(lcdAnimationPos, 1);
+  lcd.print(".");
+  lcd.print(" ");
+
+  lcdAnimationPos++;
+
+  // กรณีที่จอแสดงผลตกขอบ
+  if (lcdAnimationPos > 15) {
+
+    // กำหนดให้ตำแหน่งการแสดงผลกลับเป็น 6 เหมือนเดิม
+    lcdAnimationPos = 6;
+
+    // พร้อมกับลบจุดออก
+    for (int i = 6; i <= 15; i++) {
+      lcd.setCursor(i, 1);
+      lcd.print(" ");
+    }
+  }
+}
+
+/*
+  @brief handleConnectWiFi ถ้าในกรณีที่การเชือมต่อ WiFi (หลุด/ไม่ได้มีการเชื่อมต่อ) จะให้มีการทำงานดังนี้
+  1. จะมีการแสดงผลว่า WiFi ไม่ได้มีการเชื่อมต่อ และแสดงผลว่าตอนนี้กำลังมีการเชื่อมต่อ
+  2. มีการแสดงผลอนิเมชั่นการเชื่อมต่อใน Serial และ LCD
+*/
+void handleConnectWiFi() {
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!WiFiConnectedMessageShown) {
+      Serial.print("Connected to Wi-Fi! ");
+      Serial.println(ssid);
+
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Connected! to");
+      lcd.setCursor(0, 1);
+      lcd.print(ssid);
+
+      WiFiConnectedMessageShown = true;
+    }
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    if (!DisconnectedStatus) {
+      Serial.print("Try again to connected Wi-Fi...");
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Connecting to");
+      lcd.setCursor(0, 1);
+      lcd.print("Wi-Fi.");
+      DisconnectedStatus = true;
+    }
+    if (millis() - previousMillis >= interval_lcd) {
+      LoadingAnimationWiFi();
+      previousMillis = millis();
+    }
+  }
+}
+
+
+void SerialDataPZEM() {
   // Check if the data is valid
   if (isnan(voltage)) {
     Serial.println("Error reading Voltage please check your wire!");
@@ -164,6 +226,7 @@ void ShowStatusValue() {
 }
 
 void ShowDataOnLCD() {
+  lcd.clear();
   if (isnan(voltage) || isnan(current) || isnan(power)) {
     lcd.setCursor(0, 0);
     lcd.print("Voltage is nan!");
@@ -188,7 +251,6 @@ void ShowDataOnLCD() {
     lcd.print(power, 0);  // Print with 0 decimal places
     lcd.print(" W");
   }
-  delay(1500);
 }
 
 void setup() {
@@ -207,8 +269,7 @@ void setup() {
   delay(1000);
   lcd.clear();
 
-  // -- Connection to WiFi การเชื่อมต่อกับ WiFi --
-  connectWiFiandShowOnLCD();
+  setupWiFi();
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
   client.subscribe(Subscribe);
@@ -241,23 +302,21 @@ void SendDataFromPZEM() {
 
 void loop() {
   currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
 
-    // Read the data from the sensor
-    voltage = pzem.voltage();
-    current = pzem.current();
-    power = pzem.power();
-    energy = pzem.energy();
-    frequency = pzem.frequency();
-    power_factor = pzem.pf();
-
-    lcd.clear();
-    ShowStatusValue();
-    ShowDataOnLCD();
-    SendDataFromPZEM();
-  }
   // มีการเรียกใช้งานฟังก์ชันสำหัรบการส่งข้อมูลไปยัง Node Red.
-  reonnectMQTT();
-  delay(1000);
+  reconnectMQTT();
+  handleConnectWiFi();
+
+  if (currentMillis - SendDataMillis >= interval) {
+    SendDataFromPZEM();
+    SendDataMillis = currentMillis;
+  }
+
+  // มีการแสดงข้อมูลทุก ๆ 3 วินาทีผ่าน Serial Monitor
+  if (millis() - previousMillis >= interval_update) {
+    SerialDataPZEM();
+    ShowDataOnLCD();
+    previousMillis = currentMillis;
+  }
+
 }
