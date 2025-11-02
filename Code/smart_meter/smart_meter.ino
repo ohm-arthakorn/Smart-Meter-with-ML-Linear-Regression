@@ -43,8 +43,8 @@ unsigned const long interval = 10000;  // มีการส่งข้อม�
 unsigned const long interval_update = 3000;
 
 // WiFi & Google Script Link
-const char *ssid = "Ohm";
-const char *password = "123456789";
+const char *ssid = "Tesla_network";
+const char *password = "Boombox0906";
 
 // Declare MQTT properties.
 WiFiClient espClient;
@@ -274,7 +274,7 @@ void setup() {
   client.setCallback(callback);
   client.subscribe(Subscribe);
   // Uncomment in order to reset the internal energy counter
-  // pzem.resetEnergy()
+  //pzem.resetEnergy();
 }
 
 
@@ -283,14 +283,14 @@ void SendDataFromPZEM() {
   voltage = pzem.voltage();
   current = pzem.current();
   power = pzem.power();
-  energy = pzem.energy();
+  energy = 1000 * pzem.energy(); // Unit : Wh
   frequency = pzem.frequency();
   power_factor = pzem.pf();
 
   if (!(isnan(voltage) || isnan(current) || isnan(power))) {  // <-- เช็คว่าแรงดันมันสามารถอ่านค่าได้ไหม ? ส่งค่า : ไม่ต้องส่งค่า
     lastMsg = currentMillis;
     ++value;
-    DataString = "{ \"voltage\" : " + String(voltage) + ", \"current\" :" + String(current) + ", \"power\" :" + String(power) + ", \"energy\" :" + String(energy) + "}";
+    DataString = "{ \"voltage\" : " + String(voltage) + ", \"current\" :" + String(current) + ", \"power\" :" + String(power) + ", \"energy\" :" + String(energy,4) + "}";
     DataString.toCharArray(msg, 100);
     Serial.print("Publish message: ");
     Serial.println(msg);
